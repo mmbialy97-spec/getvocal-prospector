@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     try {
       stage1 = await callClaudeJSON(buildStage1Prompt(input), {
         useWebSearch: true,
-        maxTokens: 4096,
+        maxTokens: 2048,
       });
     } catch (err: any) {
       return NextResponse.json(
