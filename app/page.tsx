@@ -485,6 +485,8 @@ export default function Home() {
       // 3. Process each contact sequentially
       for (let i = 0; i < storedContacts.length; i++) {
         const contact = storedContacts[i];
+        // Rate limit breather — wait 3 seconds between contacts
+  if (i > 0) await new Promise(r => setTimeout(r, 3000));
 
         updateProgressRow(i, {
           status: "processing",
