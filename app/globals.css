@@ -345,6 +345,13 @@ a:hover { text-decoration: underline; }
   line-height: 1.6;
 }
 
+.upload-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .schema-hint {
   margin-top: 28px;
   padding-top: 20px;
