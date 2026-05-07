@@ -41,7 +41,7 @@ const PROCESSING_STEPS = [
   "Generating channels...",
 ];
 
-// ─── CSV helpers ─────────────────────────────────────────────────────────
+// ─── CSV helpers ──────────────────────────────────────────────────────────
 function normalizeRow(raw: any): ContactInput {
   const normalized: any = {};
   for (const key of Object.keys(raw)) {
@@ -52,53 +52,24 @@ function normalizeRow(raw: any): ContactInput {
       .replace(/[^a-z0-9_]/g, "");
     normalized[normalKey] = (raw[key] || "").toString().trim();
   }
-
   return {
-    first_name:
-      normalized.first_name || normalized.firstname || normalized.fname || "",
-    last_name:
-      normalized.last_name || normalized.lastname || normalized.lname || "",
-    company_name:
-      normalized.company_name ||
-      normalized.company ||
-      normalized.account ||
-      normalized.account_name ||
-      "",
+    first_name: normalized.first_name || normalized.firstname || normalized.fname || "",
+    last_name: normalized.last_name || normalized.lastname || normalized.lname || "",
+    company_name: normalized.company_name || normalized.company || normalized.account || normalized.account_name || "",
     website: normalized.website || normalized.domain || normalized.url || "",
     title: normalized.title || normalized.job_title || normalized.position || "",
-    linkedin_url:
-      normalized.linkedin_url ||
-      normalized.linkedin ||
-      normalized.li_url ||
-      "",
+    linkedin_url: normalized.linkedin_url || normalized.linkedin || normalized.li_url || "",
   };
 }
 
 function downloadResultsCSV(contacts: StoredContact[]) {
   const headers = [
-    "first_name",
-    "last_name",
-    "company_name",
-    "title",
-    "linkedin_url",
-    "confidence",
-    "narrative",
-    "tension",
-    "email_subject",
-    "email_body",
-    "email_first_line",
-    "email_word_count",
-    "linkedin_note",
-    "linkedin_char_count",
-    "cold_call_peer_category",
-    "cold_call_script",
-    "cold_call_reason",
-    "strongest_signal",
-    "signal_source_url",
-    "status",
-    "error_message",
+    "first_name","last_name","company_name","title","linkedin_url",
+    "confidence","narrative","tension","email_subject","email_body",
+    "email_first_line","email_word_count","linkedin_note","linkedin_char_count",
+    "cold_call_peer_category","cold_call_script","cold_call_reason",
+    "strongest_signal","signal_source_url","status","error_message",
   ];
-
   const rows = contacts.map((c) => {
     const s1 = c.stage1 || {};
     const s2 = c.stage2 || {};
@@ -106,40 +77,23 @@ function downloadResultsCSV(contacts: StoredContact[]) {
     const li = c.linkedin || {};
     const cc = c.coldcall || {};
     const sig = s1.signals?.[s1.strongest_signal] || {};
-
     return [
-      c.first_name,
-      c.last_name,
-      c.company_name,
-      c.title,
-      c.linkedin_url,
-      s1.confidence || "",
-      s2.narrative || "",
-      s2.tension || "",
-      email.subject_line || "",
-      (email.body || "").replace(/\n/g, " "),
-      email.first_line || "",
-      email.word_count || "",
-      li.connection_note || "",
-      li.character_count || "",
-      cc.peer_category || "",
-      (cc.full_script || "").replace(/\n/g, " "),
-      cc.reason_for_call || "",
-      s1.strongest_signal || "",
-      sig.source_url || "",
-      c.status,
-      c.error_message || "",
+      c.first_name, c.last_name, c.company_name, c.title, c.linkedin_url,
+      s1.confidence || "", s2.narrative || "", s2.tension || "",
+      email.subject_line || "", (email.body || "").replace(/\n/g, " "),
+      email.first_line || "", email.word_count || "",
+      li.connection_note || "", li.character_count || "",
+      cc.peer_category || "", (cc.full_script || "").replace(/\n/g, " "),
+      cc.reason_for_call || "", s1.strongest_signal || "",
+      sig.source_url || "", c.status, c.error_message || "",
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
   });
-
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `getvocal-prospector-${new Date()
-    .toISOString()
-    .slice(0, 10)}.csv`;
+  a.download = `vercel-gtm-prospector-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -159,26 +113,51 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+// ─── Vercel Triangle SVG ──────────────────────────────────────────────────
+function VercelTriangle({ size = 16, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size * (65 / 76)} viewBox="0 0 76 65" fill={color} aria-hidden="true">
+      <path d="M37.5274 0L75.0548 65H0L37.5274 0Z" />
+    </svg>
+  );
+}
+
+// ─── Deployment status badge ──────────────────────────────────────────────
+function DeployBadge({ status }: { status: "ready" | "building" | "error" }) {
+  const colors: Record<string, string> = {
+    ready: "var(--v-success)",
+    building: "var(--v-warning)",
+    error: "var(--v-error)",
+  };
+  const labels: Record<string, string> = {
+    ready: "Ready",
+    building: "Building",
+    error: "Error",
+  };
+  return (
+    <span className="deploy-badge">
+      <span className="deploy-dot" style={{ background: colors[status] }} />
+      {labels[status]}
+    </span>
+  );
+}
+
+// ─── Runtime tag ─────────────────────────────────────────────────────────
+function RuntimeTag({ label }: { label: string }) {
+  return <span className="runtime-tag">{label}</span>;
+}
+
 // ─── Contact card ─────────────────────────────────────────────────────────
 function ContactCard({ contact }: { contact: StoredContact }) {
   const [open, setOpen] = useState(false);
   const { stage1, stage2, email, linkedin, coldcall } = contact;
   const conf = stage1?.confidence || "low";
-  const isSkip =
-    contact.status === "skipped" ||
-    stage2?.send_recommendation === "SKIP" ||
-    (!stage2?.narrative && contact.status === "done");
+  const isSkip = contact.status === "skipped" || stage2?.send_recommendation === "SKIP" || (!stage2?.narrative && contact.status === "done");
   const isError = contact.status === "error";
   const isPending = contact.status === "pending" || contact.status === "processing";
 
   const badgeClass = isError ? "skip" : isSkip ? "skip" : isPending ? "skip" : conf;
-  const badgeLabel = isError
-    ? "ERROR"
-    : isSkip
-    ? "SKIP"
-    : isPending
-    ? "..."
-    : conf;
+  const badgeLabel = isError ? "ERROR" : isSkip ? "SKIP" : isPending ? "..." : conf.toUpperCase();
 
   return (
     <div className={`contact-card ${isSkip || isError ? "skipped" : ""}`}>
@@ -205,56 +184,28 @@ function ContactCard({ contact }: { contact: StoredContact }) {
       {open && (
         <div className="card-body">
           {isError ? (
-            <div className="skip-msg">
-              ⚠ {contact.error_message || "Processing error"}
-            </div>
+            <div className="skip-msg">⚠ {contact.error_message || "Processing error"}</div>
           ) : isSkip ? (
-            <div className="skip-msg">
-              ⚠ Insufficient signal — manual research required before sending.
-            </div>
+            <div className="skip-msg">⚠ Insufficient signal — manual research required before sending.</div>
           ) : isPending ? (
             <div className="skip-msg">Still processing...</div>
           ) : (
             <>
-              {/* Signal block */}
               <div className="channel-block full-width">
                 <div className="channel-label">
                   <span className="channel-name signal">◆ SIGNAL FOUND</span>
-                  <span
-                    style={{
-                      fontFamily: "DM Mono, monospace",
-                      fontSize: 10,
-                      color: "var(--text3)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    strongest: {stage1?.strongest_signal || "—"}
-                  </span>
+                  <span className="channel-meta">strongest: {stage1?.strongest_signal || "—"}</span>
                 </div>
                 <div className="channel-content">
                   {stage1?.signals &&
                     Object.entries(stage1.signals).map(([k, v]: [string, any]) =>
                       v?.found || v?.inferred_platform ? (
                         <div className="signal-item" key={k}>
-                          <span className="signal-key">
-                            {k.replace(/_/g, " ")}
-                          </span>
+                          <span className="signal-key">{k.replace(/_/g, " ")}</span>
                           <span className="signal-val">
-                            {v.summary ||
-                              v.event ||
-                              v.quote_or_topic ||
-                              v.revealing_jd_line ||
-                              v.inferred_platform ||
-                              "—"}
+                            {v.summary || v.event || v.quote_or_topic || v.revealing_jd_line || v.inferred_platform || "—"}
                             {v.source_url && (
-                              <a
-                                href={v.source_url}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                source ↗
-                              </a>
+                              <a href={v.source_url} target="_blank" rel="noreferrer"> source ↗</a>
                             )}
                           </span>
                         </div>
@@ -263,13 +214,7 @@ function ContactCard({ contact }: { contact: StoredContact }) {
                   {stage1?.confidence_reasoning && (
                     <div className="signal-item">
                       <span className="signal-key">reasoning</span>
-                      <span
-                        className="signal-val"
-                        style={{
-                          fontStyle: "italic",
-                          color: "var(--text3)",
-                        }}
-                      >
+                      <span className="signal-val" style={{ fontStyle: "italic", color: "var(--v-gray-500)" }}>
                         {stage1.confidence_reasoning}
                       </span>
                     </div>
@@ -277,16 +222,13 @@ function ContactCard({ contact }: { contact: StoredContact }) {
                 </div>
               </div>
 
-              {/* Email */}
               {email && (
                 <div className="channel-block full-width">
                   <div className="channel-label">
                     <span className="channel-name email">✉ EMAIL</span>
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <span className="word-count">{email.word_count}w</span>
-                      <CopyButton
-                        text={`Subject: ${email.subject_line}\n\n${email.body}`}
-                      />
+                      <CopyButton text={`Subject: ${email.subject_line}\n\n${email.body}`} />
                     </div>
                   </div>
                   <div className="channel-content">
@@ -296,29 +238,21 @@ function ContactCard({ contact }: { contact: StoredContact }) {
                 </div>
               )}
 
-              {/* LinkedIn */}
               {linkedin && (
                 <div className="channel-block">
                   <div className="channel-label">
                     <span className="channel-name linkedin">in LINKEDIN</span>
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <span
-                        className={`char-count ${
-                          linkedin.character_count <= 300 ? "ok" : "warn"
-                        }`}
-                      >
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <span className={`char-count ${linkedin.character_count <= 300 ? "ok" : "warn"}`}>
                         {linkedin.character_count}/300
                       </span>
                       <CopyButton text={linkedin.connection_note} />
                     </div>
                   </div>
-                  <div className="channel-content">
-                    {linkedin.connection_note}
-                  </div>
+                  <div className="channel-content">{linkedin.connection_note}</div>
                 </div>
               )}
 
-              {/* Cold call */}
               {coldcall && (
                 <div className="channel-block">
                   <div className="channel-label">
@@ -338,11 +272,7 @@ function ContactCard({ contact }: { contact: StoredContact }) {
 
 // ─── Run history sidebar ──────────────────────────────────────────────────
 function RunHistory({
-  runs,
-  currentRunId,
-  onSelect,
-  onDelete,
-  onNew,
+  runs, currentRunId, onSelect, onDelete, onNew,
 }: {
   runs: StoredRun[];
   currentRunId: string | null;
@@ -354,10 +284,8 @@ function RunHistory({
   return (
     <div className="history">
       <div className="history-header">
-        <span className="history-title">Recent runs</span>
-        <button className="clear-btn" onClick={onNew}>
-          + New
-        </button>
+        <span className="history-title">Deployments</span>
+        <button className="ghost-btn" onClick={onNew}>+ New run</button>
       </div>
       <div className="history-list">
         {runs.map((r) => (
@@ -366,22 +294,19 @@ function RunHistory({
             className={`history-item ${currentRunId === r.id ? "active" : ""}`}
             onClick={() => onSelect(r.id)}
           >
+            <div className="history-item-icon">
+              <VercelTriangle size={12} />
+            </div>
             <div className="history-item-main">
               <div className="history-item-name">{r.name}</div>
               <div className="history-item-meta">
-                {r.total_contacts} contacts ·{" "}
-                {new Date(r.created_at).toLocaleDateString()}
+                {r.total_contacts} contacts · {new Date(r.created_at).toLocaleDateString()}
               </div>
             </div>
             <button
               className="history-delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm("Delete this run?")) onDelete(r.id);
-              }}
-            >
-              ×
-            </button>
+              onClick={(e) => { e.stopPropagation(); if (confirm("Delete this run?")) onDelete(r.id); }}
+            >×</button>
           </div>
         ))}
       </div>
@@ -402,7 +327,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Load run history on mount
   useEffect(() => {
     listRuns().then(setRuns).catch(console.error);
   }, []);
@@ -415,7 +339,6 @@ export default function Home() {
   const handleFile = useCallback((file: File) => {
     if (!file) return;
     setError("");
-
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -423,14 +346,10 @@ export default function Home() {
         const parsed = (result.data as any[])
           .map(normalizeRow)
           .filter((r) => r.company_name || r.first_name);
-
         if (parsed.length === 0) {
-          setError(
-            "No valid rows found. CSV needs columns: first_name, last_name, company_name, website, title, linkedin_url"
-          );
+          setError("No valid rows found. CSV needs columns: first_name, last_name, company_name, website, title, linkedin_url");
           return;
         }
-
         setRows(parsed);
         setFileName(file.name);
         setContacts([]);
@@ -448,15 +367,11 @@ export default function Home() {
   };
 
   const updateProgressRow = (idx: number, patch: Partial<ProgressRow>) => {
-    setProgress((prev) =>
-      prev.map((p, i) => (i === idx ? { ...p, ...patch } : p))
-    );
+    setProgress((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   };
 
   const updateContactState = (idx: number, patch: Partial<StoredContact>) => {
-    setContacts((prev) =>
-      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c))
-    );
+    setContacts((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   };
 
   const runResearch = async () => {
@@ -464,7 +379,6 @@ export default function Home() {
     setRunning(true);
     setError("");
 
-    // Init progress rows
     const initialProgress: ProgressRow[] = rows.map((r) => ({
       name: `${r.first_name} ${r.last_name}`.trim() || r.company_name,
       company: r.company_name,
@@ -474,40 +388,26 @@ export default function Home() {
     setProgress(initialProgress);
 
     try {
-      // 1. Create run in IndexedDB
       const run = await createRun(fileName || "Untitled", rows.length);
       setCurrentRunId(run.id);
-
-      // 2. Create contacts in IndexedDB
       const storedContacts = await addContacts(run.id, rows);
       setContacts(storedContacts);
 
-      // 3. Process each contact sequentially
       for (let i = 0; i < storedContacts.length; i++) {
         const contact = storedContacts[i];
-        // Rate limit breather — wait 3 seconds between contacts
-  if (i > 0) await new Promise(r => setTimeout(r, 30000));
+        if (i > 0) await new Promise((r) => setTimeout(r, 30000));
 
-        updateProgressRow(i, {
-          status: "processing",
-          step: PROCESSING_STEPS[0],
-        });
+        updateProgressRow(i, { status: "processing", step: PROCESSING_STEPS[0] });
         updateContactState(i, { status: "processing" });
         await updateContact(contact.id, { status: "processing" });
 
-        // Animate steps while the call is in flight
         const stepInterval = setInterval(() => {
           setProgress((prev) => {
             const current = prev[i];
             if (!current || current.status !== "processing") return prev;
             const currentIdx = PROCESSING_STEPS.indexOf(current.step);
-            const nextIdx = Math.min(
-              currentIdx + 1,
-              PROCESSING_STEPS.length - 1
-            );
-            return prev.map((p, pi) =>
-              pi === i ? { ...p, step: PROCESSING_STEPS[nextIdx] } : p
-            );
+            const nextIdx = Math.min(currentIdx + 1, PROCESSING_STEPS.length - 1);
+            return prev.map((p, pi) => (pi === i ? { ...p, step: PROCESSING_STEPS[nextIdx] } : p));
           });
         }, 6000);
 
@@ -524,14 +424,9 @@ export default function Home() {
               linkedin_url: contact.linkedin_url,
             }),
           });
-
           clearInterval(stepInterval);
-
           const result = await res.json();
-
-          if (!res.ok) {
-            throw new Error(result.message || `HTTP ${res.status}`);
-          }
+          if (!res.ok) throw new Error(result.message || `HTTP ${res.status}`);
 
           const patch: Partial<StoredContact> = {
             stage1: result.stage1,
@@ -543,33 +438,20 @@ export default function Home() {
             processed_at: new Date().toISOString(),
             processing_time_ms: result.processing_time_ms,
           };
-
           await updateContact(contact.id, patch);
           updateContactState(i, patch);
 
           if (result.status === "skipped") {
-            updateProgressRow(i, {
-              status: "skipped",
-              step: "Skipped — insufficient signal",
-            });
+            updateProgressRow(i, { status: "skipped", step: "Skipped — insufficient signal" });
           } else {
             updateProgressRow(i, { status: "done", step: "Complete" });
           }
         } catch (err: any) {
           clearInterval(stepInterval);
           const errMsg = err.message || "Unknown error";
-          await updateContact(contact.id, {
-            status: "error",
-            error_message: errMsg,
-          });
-          updateContactState(i, {
-            status: "error",
-            error_message: errMsg,
-          });
-          updateProgressRow(i, {
-            status: "error",
-            step: `Error: ${errMsg.slice(0, 60)}`,
-          });
+          await updateContact(contact.id, { status: "error", error_message: errMsg });
+          updateContactState(i, { status: "error", error_message: errMsg });
+          updateProgressRow(i, { status: "error", step: `Error: ${errMsg.slice(0, 60)}` });
         }
       }
 
@@ -611,53 +493,55 @@ export default function Home() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // Stats
   const stats = {
     total: contacts.length,
     high: contacts.filter((c) => c.stage1?.confidence === "high").length,
     medium: contacts.filter((c) => c.stage1?.confidence === "medium").length,
-    skipped: contacts.filter(
-      (c) =>
-        c.status === "skipped" || c.stage2?.send_recommendation === "SKIP"
-    ).length,
+    skipped: contacts.filter((c) => c.status === "skipped" || c.stage2?.send_recommendation === "SKIP").length,
   };
 
   const progressPct =
     progress.length === 0
       ? 0
-      : (progress.filter((p) =>
-          ["done", "skipped", "error"].includes(p.status)
-        ).length /
-          progress.length) *
-        100;
+      : (progress.filter((p) => ["done", "skipped", "error"].includes(p.status)).length / progress.length) * 100;
 
   const hasResults = contacts.length > 0;
 
   return (
     <div className="app">
-      {/* Header */}
-      <header className="header">
-        <div>
-          <div className="logo">GETVOCAL PROSPECTOR</div>
-          <h1>Signal-driven outbound, at scale.</h1>
-          <div className="header-sub">
-            Upload a CSV, get personalised email openers, LinkedIn notes, and
-            cold call scripts grounded in real-time research and the best
-            available outbound data.
-          </div>
+
+      {/* ── Vercel-style topnav ─────────────────────────────────────── */}
+      <nav className="topnav">
+        <div className="topnav-left">
+          <a className="topnav-brand" href="/">
+            <VercelTriangle size={18} />
+            <span>Vercel</span>
+          </a>
+          <span className="topnav-divider" />
+          <span className="topnav-project">GTM Prospector</span>
+          <DeployBadge status={running ? "building" : "ready"} />
         </div>
-        <div className="header-meta">
-          <div>
-            <span className="on">●</span> claude sonnet 4.5
-          </div>
-          <div>300M calls · 100M emails · 20M linkedin</div>
-          <div>{new Date().toISOString().slice(0, 10)}</div>
+        <div className="topnav-right">
+          <RuntimeTag label="Edge Runtime" />
+          <RuntimeTag label="claude-sonnet-4" />
+          <RuntimeTag label="Next.js 15" />
         </div>
-      </header>
+      </nav>
+
+      {/* ── Pipeline breadcrumb strip ───────────────────────────────── */}
+      <div className="pipeline-strip">
+        {["CSV Ingest", "Web Search ×5", "Synthesis", "3-Channel Gen", "KV Persist"].map((step, i) => (
+          <div className="pipeline-step" key={step}>
+            <span className="pipeline-step-num">0{i + 1}</span>
+            <span className="pipeline-step-label">{step}</span>
+            {i < 4 && <span className="pipeline-arrow">›</span>}
+          </div>
+        ))}
+      </div>
 
       {error && <div className="error-banner">⚠ {error}</div>}
 
-      {/* Run history (only show when we have runs and aren't in the middle of a new upload) */}
+      {/* ── Run history ─────────────────────────────────────────────── */}
       {runs.length > 0 && !running && (
         <RunHistory
           runs={runs}
@@ -668,124 +552,103 @@ export default function Home() {
         />
       )}
 
-      {/* Upload zone */}
+      {/* ── Upload zone ─────────────────────────────────────────────── */}
       {rows.length === 0 && !hasResults && (
         <div
           className={`upload-zone ${dragOver ? "drag-over" : ""}`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
           onClick={() => fileRef.current?.click()}
         >
-          <div className="upload-icon">↑</div>
-          <div className="upload-title">Drop a CSV to start</div>
+          <div className="upload-triangle">
+            <VercelTriangle size={32} color="var(--v-gray-400)" />
+          </div>
+          <div className="upload-title">Deploy your prospect list</div>
           <div className="upload-sub">
-            Or click to browse. CSV from HubSpot, Sales Nav, or Lemlist exports
-            will work.
+            Drop a CSV or click to browse. HubSpot, Sales Navigator, and Lemlist exports work out of the box.
           </div>
           <button
-            className="upload-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              fileRef.current?.click();
-            }}
+            className="primary-btn"
+            onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
           >
-            Choose CSV File
+            Choose CSV
           </button>
-
           <div className="schema-hint">
-            <div className="schema-label">Required columns</div>
+            <div className="schema-label">Expected columns</div>
             <div className="schema-cols">
-              <span className="schema-col">first_name</span>
-              <span className="schema-col">last_name</span>
-              <span className="schema-col">company_name</span>
-              <span className="schema-col">website</span>
-              <span className="schema-col">title</span>
-              <span className="schema-col">linkedin_url</span>
+              {["first_name", "last_name", "company_name", "website", "title", "linkedin_url"].map((col) => (
+                <span className="schema-col" key={col}>{col}</span>
+              ))}
             </div>
           </div>
-
           <input
             ref={fileRef}
             type="file"
             accept=".csv"
             style={{ display: "none" }}
-            onChange={(e) =>
-              e.target.files?.[0] && handleFile(e.target.files[0])
-            }
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
         </div>
       )}
 
-      {/* File bar */}
+      {/* ── File bar ────────────────────────────────────────────────── */}
       {rows.length > 0 && !hasResults && (
         <div className="file-bar">
           <div className="file-bar-left">
             <span className="file-dot" />
             <span className="file-name">{fileName}</span>
-            <span className="file-count">
-              {rows.length} contact{rows.length === 1 ? "" : "s"}
-            </span>
+            <span className="file-count">{rows.length} contact{rows.length === 1 ? "" : "s"} · ready to deploy</span>
           </div>
           <div className="file-bar-right">
+            {!running && <button className="ghost-btn" onClick={clearAll}>Clear</button>}
             {!running && (
-              <button className="clear-btn" onClick={clearAll}>
-                Clear
-              </button>
-            )}
-            {!running && (
-              <button className="run-btn" onClick={runResearch}>
-                ▶ Run Research
+              <button className="primary-btn run-btn" onClick={runResearch}>
+                <VercelTriangle size={11} color="currentColor" />
+                Deploy pipeline
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Stats */}
+      {/* ── Stats bar ───────────────────────────────────────────────── */}
       {hasResults && (
         <div className="stats-bar">
           <div className="stat">
             <div className="stat-num">{stats.total}</div>
-            <div className="stat-label">Total</div>
+            <div className="stat-label">Contacts</div>
           </div>
           <div className="stat">
-            <div className="stat-num green">{stats.high}</div>
+            <div className="stat-num" style={{ color: "var(--v-success)" }}>{stats.high}</div>
             <div className="stat-label">High confidence</div>
           </div>
           <div className="stat">
-            <div className="stat-num orange">{stats.medium}</div>
+            <div className="stat-num" style={{ color: "var(--v-warning)" }}>{stats.medium}</div>
             <div className="stat-label">Medium</div>
           </div>
           <div className="stat">
-            <div className="stat-num red">{stats.skipped}</div>
+            <div className="stat-num" style={{ color: "var(--v-error)" }}>{stats.skipped}</div>
             <div className="stat-label">Skipped</div>
           </div>
         </div>
       )}
 
-      {/* Progress */}
+      {/* ── Build log (progress) ─────────────────────────────────────── */}
       {progress.length > 0 && running && (
         <div className="progress-section">
           <div className="progress-header">
-            <div className="progress-title">Processing</div>
+            <div className="progress-title">
+              <span className="build-spinner" />
+              Building…
+            </div>
             <div className="progress-count">
-              {
-                progress.filter((p) =>
-                  ["done", "skipped", "error"].includes(p.status)
-                ).length
-              }{" "}
-              / {progress.length}
+              {progress.filter((p) => ["done", "skipped", "error"].includes(p.status)).length}
+              &nbsp;/&nbsp;{progress.length}
             </div>
           </div>
           <div className="progress-bar-track">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${progressPct}%` }}
-            />
+            <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="progress-rows">
             {progress.map((p, i) => (
@@ -793,15 +656,7 @@ export default function Home() {
                 <span className={`p-status ${p.status}`}>
                   {p.status === "processing" ? (
                     <span className="spinner" />
-                  ) : p.status === "done" ? (
-                    "✓ done"
-                  ) : p.status === "skipped" ? (
-                    "– skip"
-                  ) : p.status === "error" ? (
-                    "✕ error"
-                  ) : (
-                    "· wait"
-                  )}
+                  ) : p.status === "done" ? "✓" : p.status === "skipped" ? "–" : p.status === "error" ? "✕" : "·"}
                 </span>
                 <span className="p-name">{p.name}</span>
                 <span className="p-step">{p.step}</span>
@@ -811,24 +666,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Results */}
+      {/* ── Results ─────────────────────────────────────────────────── */}
       {hasResults && !running && (
         <>
           <div className="results-header">
-            <div className="results-title">Results</div>
+            <div className="results-title">Output</div>
             <div className="results-actions">
-              <button className="clear-btn" onClick={clearAll}>
-                New Upload
-              </button>
-              <button
-                className="download-btn"
-                onClick={() => downloadResultsCSV(contacts)}
-              >
-                ↓ Download CSV
+              <button className="ghost-btn" onClick={clearAll}>New upload</button>
+              <button className="primary-btn" onClick={() => downloadResultsCSV(contacts)}>
+                ↓ Export CSV
               </button>
             </div>
           </div>
-
           <div className="contact-grid">
             {contacts.map((c) => (
               <ContactCard key={c.id} contact={c} />
@@ -836,6 +685,14 @@ export default function Home() {
           </div>
         </>
       )}
+
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="app-footer">
+        <span>Built on Vercel · EMEA Startups GTM tooling</span>
+        <span className="footer-sep">·</span>
+        <span>claude-sonnet-4 · Edge Runtime · Next.js 15 · IndexedDB</span>
+      </footer>
+
     </div>
   );
 }
