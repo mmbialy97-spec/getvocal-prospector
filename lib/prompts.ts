@@ -55,15 +55,29 @@ const OFFER_CONTEXT: Record<string, { label: string; description: string; proofP
   },
 };
 
+const PERSONA_CONTEXT: Record<string, { label: string; guidance: string }> = {
+  cto_technical: {
+    label: "CTO - technical impact",
+    guidance: "Lead with technical impact: developer velocity, architecture fit, reliability, latency, observability, deployment risk, and infra simplification.",
+  },
+  ceo_business: {
+    label: "CEO - business impact",
+    guidance: "Lead with business impact: speed to market, conversion, hiring leverage, infrastructure cost, expansion readiness, and focus for a small leadership team.",
+  },
+};
+
 function getCampaignContext(input: ContactInput) {
   const offerKey = input.campaign_offer || "infra";
   const offer = OFFER_CONTEXT[offerKey] || OFFER_CONTEXT.infra;
-  const persona = input.campaign_persona || "technical_leader";
+  const personaKey = input.campaign_persona || "cto_technical";
+  const persona = PERSONA_CONTEXT[personaKey] || PERSONA_CONTEXT.cto_technical;
+
   return {
-    persona,
+    persona: personaKey,
     offerKey,
     offer,
-    text: `Selected persona: ${persona.replace(/_/g, " ")}
+    text: `Selected persona: ${persona.label}
+Persona guidance: ${persona.guidance}
 Selected offer: ${offer.label}
 Offer positioning: ${offer.description}
 Most useful signals for this offer:
@@ -117,7 +131,7 @@ SEARCH 5 - PERFORMANCE & SCALE PAIN
 Query: "${company_name} web performance page speed scaling frontend users"
 What to find: Any evidence of performance complaints, slow load times, user-facing issues, international expansion, or engineering posts about scaling challenges.
 
-After the mandated searches, interpret every signal through the selected offer (${campaign.offer.label}). Prefer signals that make that offer timely and commercially relevant.
+After the mandated searches, interpret every signal through the selected offer (${campaign.offer.label}) and selected persona. CTO output should emphasize technical impact; CEO output should emphasize business impact.
 
 Return a single JSON object only:
 
@@ -169,6 +183,7 @@ Rules:
 - Pick the SINGLE strongest narrative.
 - Ground it in at least one specific signal from the research.
 - Favor the selected offer (${campaign.offer.label}) unless the research clearly shows a better Vercel angle.
+- Adapt impact framing to the selected persona: CTO means technical impact; CEO means business impact.
 - If confidence is LOW and no meaningful signals were found, set send_recommendation to SKIP.
 - Keep narrative under 20 words.
 
@@ -205,6 +220,7 @@ Email rules:
 - Subject line: 4-7 words. No "quick question".
 - First line: specific observation about ${company_name}.
 - Prefer ${campaign.offer.label} if the evidence supports it.
+- Adapt to the selected persona: CTO = technical impact; CEO = business impact.
 - One soft question CTA.
 - No bullets in the final email.
 - Mention AI only when the selected offer or source evidence is AI Gateway, Fluid Compute, or Agents.
@@ -235,6 +251,7 @@ Rules:
 - No pitch. Do not mention Vercel by name.
 - Reference one specific thing from the research.
 - Bias toward ${campaign.offer.label} only when it sounds natural.
+- Adapt to the selected persona: CTO = technical impact; CEO = business impact.
 
 Return ONLY this JSON object:
 {
@@ -246,7 +263,6 @@ Return ONLY this JSON object:
 export function buildColdCallPrompt(input: ContactInput, stage2: any, stage1: any): string {
   const { first_name, company_name, title } = input;
   const campaign = getCampaignContext(input);
-
   const peerCategories: Record<string, string> = {
     tech_stack: "startups that recently migrated to Next.js",
     deploy_hiring: "startups hiring their first DevOps or platform engineer",
@@ -270,6 +286,7 @@ Rules:
 - Permission-based opener.
 - One concrete reason tied to research.
 - Connect to ${campaign.offer.label} if the evidence supports it.
+- Adapt to the selected persona: CTO = technical impact; CEO = business impact.
 - End with a question.
 
 Return ONLY this JSON object:
