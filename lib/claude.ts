@@ -21,6 +21,10 @@ export async function callClaudeJSON<T = any>(
 ): Promise<T> {
   const { useWebSearch = false, maxTokens = 4096 } = opts;
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is missing. Add it to .env.local or your Vercel environment variables.");
+  }
+
   const params: any = {
     model: MODEL,
     max_tokens: maxTokens,
