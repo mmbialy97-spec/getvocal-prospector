@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { callClaudeJSON } from "@/lib/claude";
+import { callClaudeJSON, getClaudeRuntime } from "@/lib/claude";
 import {
   buildStage1Prompt,
   buildStage2Prompt,
@@ -13,9 +13,11 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 type StreamEvent = {
-  type: "progress" | "stage" | "done" | "error";
+  type: "runtime" | "progress" | "stage" | "token" | "done" | "error";
   step?: string;
   status?: "processing" | "done" | "skipped" | "error";
+  channel?: "email" | "linkedin" | "coldcall";
+  text?: string;
   payload?: any;
   message?: string;
   processing_time_ms?: number;
@@ -39,6 +41,9 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        const runtime = getClaudeRuntime();
+        send({ type: "runtime", status: "processing", payload: runtime });
+        send({ type: "progress", status: "processing", step: `${runtime.routedVia} routed` });
         send({ type: "progress", status: "processing", step: "Searching public evidence..." });
         const stage1 = await callClaudeJSON(buildStage1Prompt(input), {
           useWebSearch: true,
@@ -46,7 +51,7 @@ export async function POST(req: NextRequest) {
         });
         send({ type: "stage", status: "processing", step: "Research complete", payload: { stage1 } });
 
-        send({ type: "progress", status: "processing", step: "Synthesizing narrative..." });
+        send({ type: "progress", status: "processing", step: "Synthesising narrative..." });
         const stage2 = await callClaudeJSON(buildStage2Prompt(stage1, input), {
           maxTokens: 1024,
         });
@@ -69,10 +74,27 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: "progress", status: "processing", step: "Generating outreach..." });
+        const channelDrafts: Record<string, string> = {};
+        const streamChannel = (channel: "email" | "linkedin" | "coldcall") => (text: string) => {
+          channelDrafts[channel] = `${channelDrafts[channel] || ""}${text}`;
+          const preview = channelDrafts[channel].replace(/\s+/g, " ").trim().slice(-72);
+          send({ type: "token", channel, text });
+          if (preview) send({ type: "progress", status: "processing", step: `${channel}: ${preview}` });
+        };
+
         const [email, linkedin, coldcall] = await Promise.all([
-          callClaudeJSON(buildEmailPrompt(input, stage2, stage1), { maxTokens: 1024 }),
-          callClaudeJSON(buildLinkedInPrompt(input, stage2, stage1), { maxTokens: 512 }),
-          callClaudeJSON(buildColdCallPrompt(input, stage2, stage1), { maxTokens: 1024 }),
+          callClaudeJSON(buildEmailPrompt(input, stage2, stage1), {
+            maxTokens: 1024,
+            onTextDelta: streamChannel("email"),
+          }),
+          callClaudeJSON(buildLinkedInPrompt(input, stage2, stage1), {
+            maxTokens: 512,
+            onTextDelta: streamChannel("linkedin"),
+          }),
+          callClaudeJSON(buildColdCallPrompt(input, stage2, stage1), {
+            maxTokens: 1024,
+            onTextDelta: streamChannel("coldcall"),
+          }),
         ]);
 
         send({
