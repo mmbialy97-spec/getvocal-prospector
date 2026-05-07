@@ -6,7 +6,7 @@
 // Stage 3: 3 parallel channel outputs (email, LinkedIn, cold call)
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { callClaudeJSON } from "@/lib/claude";
 import {
   buildStage1Prompt,
   buildStage2Prompt,
@@ -18,54 +18,6 @@ import {
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
-
-// ─── Claude caller ────────────────────────────────────────────────────────
-async function callClaudeJSON(
-  prompt: string,
-  options: { useWebSearch?: boolean; maxTokens?: number } = {}
-): Promise<any> {
-  const { useWebSearch = false, maxTokens = 2048 } = options;
-
-  const tools: any[] = useWebSearch
-    ? [{ type: "web_search_20250305", name: "web_search" }]
-    : [];
-
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: maxTokens,
-    ...(tools.length > 0 ? { tools } : {}),
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  // Extract text blocks from response (skip tool_use and tool_result blocks)
-  const textContent = response.content
-    .filter((block: any) => block.type === "text")
-    .map((block: any) => block.text)
-    .join("");
-
-  if (!textContent) {
-    throw new Error("No text content in Claude response");
-  }
-
-  // Strip markdown fences if present
-  const cleaned = textContent
-    .replace(/```json\s*/gi, "")
-    .replace(/```\s*/g, "")
-    .trim();
-
-  // Find the JSON object
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    throw new Error(`No JSON object found in response: ${cleaned.slice(0, 200)}`);
-  }
-
-  return JSON.parse(cleaned.slice(start, end + 1));
-}
 
 // ─── POST /api/process ────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
