@@ -41,6 +41,163 @@ const PROCESSING_STEPS = [
   "Generating channels...",
 ];
 
+const DEMO_CONTACTS: Array<ContactInput & Partial<StoredContact>> = [
+  {
+    first_name: "Maya",
+    last_name: "Patel",
+    company_name: "Northstar Health",
+    website: "northstar-health.example",
+    title: "CTO",
+    linkedin_url: "linkedin.com/in/mayapatel",
+    status: "done",
+    processed_at: new Date().toISOString(),
+    processing_time_ms: 36420,
+    stage1: {
+      confidence: "high",
+      confidence_reasoning: "Recent funding plus frontend hiring creates a timely deploy-velocity signal.",
+      strongest_signal: "deploy_hiring",
+      signals: {
+        tech_stack: {
+          found: true,
+          framework: "Next.js",
+          current_platform: "unknown",
+          summary: "Engineering roles mention React, Next.js, and ownership of frontend delivery pipelines.",
+          source_url: "https://example.com/northstar-frontend-role",
+        },
+        deploy_hiring: {
+          found: true,
+          role_title: "Senior Frontend Platform Engineer",
+          revealing_jd_line: "Improve CI/CD, preview environments, and release reliability for product squads.",
+          summary: "They are hiring directly around the pain Vercel removes.",
+          source_url: "https://example.com/northstar-platform-role",
+        },
+        funding_growth: {
+          found: true,
+          round: "Series A",
+          amount: "$18M",
+          date: "March 2025",
+          summary: "Fresh Series A funding suggests engineering team growth and more release pressure.",
+          source_url: "https://example.com/northstar-funding",
+        },
+        founder_voice: {
+          found: false,
+          quote_or_topic: "",
+          platform: "unknown",
+          summary: "",
+          source_url: "",
+        },
+        performance_pain: {
+          found: false,
+          inferred_platform: "",
+          summary: "",
+          source_url: "",
+        },
+      },
+    },
+    stage2: {
+      narrative: "Series A growth is turning deploy flow into an engineering tax.",
+      tension: "Northstar is hiring around frontend platform work that could slow product squads before the team scales.",
+      primary_signal_used: "deploy_hiring",
+      send_recommendation: "SEND",
+      skip_reason: "",
+    },
+    email: {
+      subject_line: "frontend platform timing",
+      first_line: "Northstar is hiring around frontend platform and release reliability right after the Series A.",
+      body: "Northstar is hiring around frontend platform and release reliability right after the Series A. That usually means product teams are starting to feel deployment friction before the org has a full platform layer. Vercel gives every PR a preview URL and removes a lot of CI/CD plumbing. Are preview environments already part of your release flow?",
+      word_count: 57,
+      cta: "Are preview environments already part of your release flow?",
+    },
+    linkedin: {
+      connection_note: "Saw Northstar hiring around frontend platform after the Series A. That timing usually says release flow is becoming a real operating constraint. Curious how you're thinking about preview environments as the team scales.",
+      character_count: 218,
+    },
+    coldcall: {
+      peer_category: "startups hiring their first DevOps or platform engineer",
+      reason_for_call: "Northstar is hiring for frontend platform and release reliability shortly after a Series A.",
+      full_script: "Hi Maya, it's Alex from Vercel. Did I catch you at a bad time? The reason I called is Northstar looks like it is hiring around frontend platform and release reliability right after the Series A. We see that with startups before deploy flow becomes a team-wide bottleneck. How are you handling preview environments and release confidence today?",
+      closing_question: "How are you handling preview environments and release confidence today?",
+    },
+  },
+  {
+    first_name: "Leo",
+    last_name: "Schneider",
+    company_name: "AtlasPay",
+    website: "atlaspay.example",
+    title: "VP Engineering",
+    linkedin_url: "linkedin.com/in/leoschneider",
+    status: "done",
+    processed_at: new Date().toISOString(),
+    processing_time_ms: 29410,
+    stage1: {
+      confidence: "medium",
+      confidence_reasoning: "One strong international expansion signal, but public stack detail is limited.",
+      strongest_signal: "performance_pain",
+      signals: {
+        tech_stack: {
+          found: false,
+          framework: "unknown",
+          current_platform: "unknown",
+          summary: "",
+          source_url: "",
+        },
+        deploy_hiring: {
+          found: false,
+          role_title: "",
+          revealing_jd_line: "",
+          summary: "",
+          source_url: "",
+        },
+        funding_growth: {
+          found: true,
+          round: "Seed",
+          amount: "$7M",
+          date: "November 2024",
+          summary: "Seed funding supports expansion into two new European markets.",
+          source_url: "https://example.com/atlaspay-seed",
+        },
+        founder_voice: {
+          found: false,
+          quote_or_topic: "",
+          platform: "unknown",
+          summary: "",
+          source_url: "",
+        },
+        performance_pain: {
+          found: true,
+          inferred_platform: "unknown",
+          summary: "Expansion into multiple markets creates latency risk for conversion-critical payment flows.",
+          source_url: "https://example.com/atlaspay-expansion",
+        },
+      },
+    },
+    stage2: {
+      narrative: "European expansion makes payment-flow latency a conversion risk.",
+      tension: "AtlasPay is entering new markets where slow frontend performance can directly affect payment completion.",
+      primary_signal_used: "performance_pain",
+      send_recommendation: "SEND",
+      skip_reason: "",
+    },
+    email: {
+      subject_line: "AtlasPay expansion latency",
+      first_line: "AtlasPay's European expansion puts more pressure on payment-flow latency outside your first market.",
+      body: "AtlasPay's European expansion puts more pressure on payment-flow latency outside your first market. For payment products, a few hundred milliseconds can become a conversion problem quickly. Vercel's Edge Network serves from 100+ regions without extra infra work. Are you already measuring checkout performance by geography?",
+      word_count: 50,
+      cta: "Are you already measuring checkout performance by geography?",
+    },
+    linkedin: {
+      connection_note: "Noticed AtlasPay expanding across Europe after the seed round. For payment products, regional frontend latency can get very real very quickly. Curious whether geography is already in your perf dashboards.",
+      character_count: 203,
+    },
+    coldcall: {
+      peer_category: "startups expanding into new markets and hitting latency issues",
+      reason_for_call: "AtlasPay is expanding across Europe, where payment-flow latency can become a conversion issue.",
+      full_script: "Hi Leo, it's Alex from Vercel. Did I catch you at a bad time? I noticed AtlasPay is expanding across Europe after the seed round. We work with payment startups when regional latency starts showing up in conversion-critical flows. How are you measuring frontend performance by market right now?",
+      closing_question: "How are you measuring frontend performance by market right now?",
+    },
+  },
+];
+
 // ─── CSV helpers ──────────────────────────────────────────────────────────
 function normalizeRow(raw: any): ContactInput {
   const normalized: any = {};
@@ -336,6 +493,44 @@ export default function Home() {
     setRuns(r);
   }, []);
 
+  const loadDemoResults = useCallback(async () => {
+    setError("");
+    setRunning(false);
+    setRows([]);
+    setFileName("demo-output.csv");
+    setProgress([]);
+
+    try {
+      const demoRows = DEMO_CONTACTS.map((c) => ({
+        first_name: c.first_name,
+        last_name: c.last_name,
+        company_name: c.company_name,
+        website: c.website,
+        title: c.title,
+        linkedin_url: c.linkedin_url,
+      }));
+      const run = await createRun("Demo output", DEMO_CONTACTS.length);
+      const storedContacts = await addContacts(run.id, demoRows);
+      const enrichedContacts = storedContacts.map((contact, idx) => ({
+        ...contact,
+        ...DEMO_CONTACTS[idx],
+        id: contact.id,
+        run_id: contact.run_id,
+        created_at: contact.created_at,
+      }));
+
+      await Promise.all(
+        enrichedContacts.map((contact) => updateContact(contact.id, contact))
+      );
+      await updateRunStatus(run.id, "complete");
+      setCurrentRunId(run.id);
+      setContacts(enrichedContacts);
+      await refreshRuns();
+    } catch (err: any) {
+      setError(err.message || "Unable to load demo output");
+    }
+  }, [refreshRuns]);
+
   const handleFile = useCallback((file: File) => {
     if (!file) return;
     setError("");
@@ -522,15 +717,15 @@ export default function Home() {
           <DeployBadge status={running ? "building" : "ready"} />
         </div>
         <div className="topnav-right">
-          <RuntimeTag label="Edge Runtime" />
-          <RuntimeTag label="claude-sonnet-4" />
-          <RuntimeTag label="Next.js 15" />
+          <RuntimeTag label="Serverless Function" />
+          <RuntimeTag label="claude-sonnet-4.5" />
+          <RuntimeTag label="Next.js 14" />
         </div>
       </nav>
 
       {/* ── Pipeline breadcrumb strip ───────────────────────────────── */}
       <div className="pipeline-strip">
-        {["CSV Ingest", "Web Search ×5", "Synthesis", "3-Channel Gen", "KV Persist"].map((step, i) => (
+        {["CSV Ingest", "Web Search ×5", "Synthesis", "3-Channel Gen", "IndexedDB"].map((step, i) => (
           <div className="pipeline-step" key={step}>
             <span className="pipeline-step-num">0{i + 1}</span>
             <span className="pipeline-step-label">{step}</span>
@@ -568,12 +763,20 @@ export default function Home() {
           <div className="upload-sub">
             Drop a CSV or click to browse. HubSpot, Sales Navigator, and Lemlist exports work out of the box.
           </div>
-          <button
-            className="primary-btn"
-            onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-          >
-            Choose CSV
-          </button>
+          <div className="upload-actions">
+            <button
+              className="primary-btn"
+              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+            >
+              Choose CSV
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={(e) => { e.stopPropagation(); loadDemoResults(); }}
+            >
+              Load demo output
+            </button>
+          </div>
           <div className="schema-hint">
             <div className="schema-label">Expected columns</div>
             <div className="schema-cols">
@@ -690,7 +893,7 @@ export default function Home() {
       <footer className="app-footer">
         <span>Built on Vercel · EMEA Startups GTM tooling</span>
         <span className="footer-sep">·</span>
-        <span>claude-sonnet-4 · Edge Runtime · Next.js 15 · IndexedDB</span>
+        <span>claude-sonnet-4.5 · Serverless Function · Next.js 14 · IndexedDB</span>
       </footer>
 
     </div>
