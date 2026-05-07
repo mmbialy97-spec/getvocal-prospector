@@ -1,8 +1,8 @@
-// ─── Prompt architecture ──────────────────────────────────────────────────
-// Three stages, narrow focus per stage, separate API calls.
-// Stage 1: Research (web search enabled, 5 mandated queries)
-// Stage 2: Synthesis (pick the single narrative thread)
-// Stage 3: Channel generation — 3 separate prompts, no bleed between channels
+// lib/prompts.ts
+// Vercel EMEA Startups GTM Prospector
+// Persona: Startup CEOs, CTOs, VP Engs, Heads of Platform
+// Pain: deploy velocity, DX friction, infra cost, Edge performance, scaling frontend infra
+// Vercel value: faster deploys, preview environments, Edge Network, Next.js-native DX
 
 export type ContactInput = {
   first_name: string;
@@ -13,261 +13,250 @@ export type ContactInput = {
   linkedin_url: string;
 };
 
-// ═════════════════════════════════════════════════════════════════════════
-// STAGE 1: Research agent
-// Forces 5 targeted searches before any synthesis — prevents shallow output
-// ═════════════════════════════════════════════════════════════════════════
-export function buildStage1Prompt(c: ContactInput): string {
-  return `You are a B2B research agent for GetVocal, which sells AI voice agents that handle customer support calls. Your only job is to find evidence of customer support strain at a specific company — the tension signals that indicate a VP of CX or Head of Support is in pain right now.
+// ─── Stage 1: Research ────────────────────────────────────────────────────
+// 5 targeted web searches per company.
+// Each search hunts for a specific deploy/infra signal relevant to Vercel's ICP.
 
-You are NOT writing a company summary. You are NOT producing generic business intelligence. You are hunting for ONE thing: tension in their customer support operation.
+export function buildStage1Prompt(input: ContactInput): string {
+  const { first_name, last_name, company_name, website, title } = input;
+  const fullName = `${first_name} ${last_name}`.trim();
 
-COMPANY: ${c.company_name}
-WEBSITE: ${c.website}
-CONTACT: ${c.first_name} ${c.last_name}, ${c.title}
-LINKEDIN: ${c.linkedin_url}
+  return `You are a senior GTM researcher at Vercel on the EMEA Startups team.
+Your job is to find deployment infrastructure and frontend engineering signals for a startup prospect.
+You are preparing personalised outreach for ${fullName}, ${title} at ${company_name} (${website}).
 
-You MUST run exactly 5 web searches in order before drawing any conclusion. Do not skip any search. Do not reason until all 5 are complete.
+Vercel's core value proposition for startups:
+- Instant preview deployments on every git push (kills the "works on my machine" problem)
+- Edge Network: serve from 100+ regions, sub-50ms TTFB globally
+- Native Next.js support — zero config, instant builds
+- Eliminates the need for a dedicated DevOps/infra hire at seed/Series A stage
+- Competitors we displace: Netlify, AWS Amplify, self-hosted infra (k8s/ECS), Railway, Render, Heroku
 
-SEARCH 1 — Review signal
-Query: "${c.company_name} Trustpilot reviews" OR "${c.company_name} G2 reviews" OR "${c.company_name} App Store reviews 2024 2025"
-Extract: Pattern of complaints about response times, wait times, unreachable support, or bad bots in the last 90 days. Is the trend worsening? Copy the most revealing review phrase verbatim if found.
+Run FIVE separate web searches in this exact order:
 
-SEARCH 2 — Hiring signal
-Query: "${c.company_name} customer support jobs hiring 2025"
-Extract: Number of open support roles. Do job descriptions mention AI, automation, scaling, or ticket volume? Copy the single most revealing sentence from any job description.
+SEARCH 1 — TECH STACK & FRAMEWORK SIGNALS
+Query: "${company_name} tech stack frontend framework Next.js React"
+What to find: Do they use Next.js, React, or another modern framework? Any blog posts, job specs, or GitHub activity revealing their frontend stack? Are they self-hosting or on a competitor platform?
 
-SEARCH 3 — Growth signal
-Query: "${c.company_name} funding OR product launch OR expansion 2024 2025"
-Extract: Any funding round, product launch, or geographic expansion in the last 12 months. Growth events create support strain. Note exact date.
+SEARCH 2 — DEPLOY & INFRA JOB SIGNALS
+Query: "${company_name} hiring frontend engineer DevOps platform engineer site reliability"
+What to find: Are they hiring for infra or frontend roles? Job descriptions mentioning CI/CD, deployment pipelines, preview environments, or build tooling are strong signals they're feeling deploy pain. A startup hiring a DevOps engineer is a company Vercel can save.
 
-SEARCH 4 — Decision maker signal
-Query: "${c.first_name} ${c.last_name}" "${c.company_name}" support OR CX OR customer experience OR automation
-Extract: Any public statement about support strategy, AI, automation, deflection, CSAT. Direct quotes only. If nothing found, record null.
+SEARCH 3 — GROWTH & FUNDING SIGNALS
+Query: "${company_name} funding round Series A B seed 2024 2025"
+What to find: Recent funding rounds (last 18 months), headcount growth, new market expansions. A recently funded startup is actively scaling — deploy infrastructure becomes a bottleneck at this stage.
 
-SEARCH 5 — Support stack signal
-Query: "${c.company_name}" Zendesk OR Intercom OR Freshdesk OR "Salesforce Service Cloud"
-Extract: What support platform are they likely running? Evidence for the inference.
+SEARCH 4 — FOUNDER/DECISION MAKER PUBLIC VOICE
+Query: "${fullName} ${company_name} engineering infrastructure developer experience"
+What to find: Has ${fullName} written or spoken about engineering velocity, developer tooling, scaling their team, or infrastructure? LinkedIn posts, podcast appearances, blog posts, or conference talks. A quote or topic they've publicly engaged with is the strongest personalisation signal.
 
-CRITICAL RULES:
-- Do not fabricate. If a search returns nothing useful, record null.
-- A null is more valuable than a guess — lying about signals costs deals.
-- Only cite signals less than 12 months old. Flag anything older.
-- If snippets are thin, run a more specific follow-up search using the exact company name plus the most promising keyword you saw (e.g. "${c.company_name} long wait times" if reviews mentioned wait times).
-- Use the actual URLs returned by search results as source_url values — never invent URLs.
+SEARCH 5 — PERFORMANCE & SCALE PAIN
+Query: "${company_name} web performance page speed scaling frontend users"
+What to find: Any evidence of performance complaints, slow load times, user-facing issues, international expansion (which creates latency problems), or engineering blog posts about scaling challenges. Vercel's Edge Network directly solves global latency for startups expanding internationally.
 
-After all 5 searches, output ONLY this JSON structure (no preamble, no markdown code fences):
+After completing all five searches, return a single JSON object — no markdown, no preamble:
 
 {
-  "company_name": "${c.company_name}",
+  "confidence": "high" | "medium" | "low",
+  "confidence_reasoning": "one sentence explaining why",
+  "strongest_signal": "tech_stack" | "deploy_hiring" | "funding_growth" | "founder_voice" | "performance_pain",
   "signals": {
-    "reviews": {
-      "found": boolean,
-      "summary": "one sentence on what the review pattern shows, or null",
-      "complaint_pattern": "specific complaint type e.g. 'response time' or null",
-      "recency_days": number or null,
-      "source_url": "url or null"
+    "tech_stack": {
+      "found": true | false,
+      "framework": "Next.js" | "React" | "Vue" | "other" | "unknown",
+      "current_platform": "self-hosted" | "Netlify" | "AWS Amplify" | "Railway" | "Render" | "Heroku" | "unknown",
+      "summary": "one sentence of what you found",
+      "source_url": "url or empty string"
     },
-    "hiring": {
-      "found": boolean,
-      "open_support_roles": number or null,
-      "mentions_ai_or_automation": boolean,
-      "revealing_jd_line": "copied sentence from JD or null",
-      "source_url": "url or null"
+    "deploy_hiring": {
+      "found": true | false,
+      "role_title": "exact job title if found or empty string",
+      "revealing_jd_line": "most relevant line from the job description or empty string",
+      "summary": "one sentence",
+      "source_url": "url or empty string"
     },
-    "growth": {
-      "found": boolean,
-      "event": "one sentence describing the growth event or null",
-      "date": "approximate date or null",
-      "source_url": "url or null"
+    "funding_growth": {
+      "found": true | false,
+      "round": "Series A" | "Series B" | "Seed" | "other" | "unknown",
+      "amount": "e.g. $12M or unknown",
+      "date": "e.g. March 2025 or unknown",
+      "summary": "one sentence on growth stage and what it means for infra needs",
+      "source_url": "url or empty string"
     },
-    "decision_maker": {
-      "found": boolean,
-      "quote_or_topic": "direct quote or specific topic discussed or null",
-      "source_url": "url or null"
+    "founder_voice": {
+      "found": true | false,
+      "quote_or_topic": "direct quote or topic they've engaged with publicly, or empty string",
+      "platform": "LinkedIn" | "blog" | "podcast" | "conference" | "Twitter/X" | "other" | "unknown",
+      "summary": "one sentence",
+      "source_url": "url or empty string"
     },
-    "stack": {
-      "inferred_platform": "platform name or 'unknown'",
-      "evidence": "how you inferred it"
+    "performance_pain": {
+      "found": true | false,
+      "inferred_platform": "where they're likely hosted if known or empty string",
+      "summary": "one sentence — specific pain found or inferred latency risk",
+      "source_url": "url or empty string"
     }
-  },
-  "strongest_signal": "one of: reviews | hiring | growth | decision_maker | none",
-  "confidence": "high | medium | low",
-  "confidence_reasoning": "one sentence"
+  }
 }
 
-Confidence rules:
-- HIGH: 2+ specific signals, at least one under 90 days old, with a verifiable source URL
-- MEDIUM: 1 useful signal found, or signals are older than 90 days
-- LOW: Only generic company info found — no CX-specific tension signals`;
+Confidence scoring rules:
+- HIGH: 2+ strong signals found. Strong = framework confirmed as Next.js/React, OR infra job post found, OR founder has publicly discussed engineering velocity, OR funded in last 12 months with clear growth trajectory.
+- MEDIUM: 1 strong signal found, or 2+ weak signals (inferred rather than confirmed).
+- LOW: Minimal public information. No tech stack confirmed, no relevant job posts, no recent funding found.
+
+Return ONLY the JSON object. No markdown fences. No commentary.`;
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// STAGE 2: Synthesis
-// Pick ONE narrative thread from the research. No new information.
-// ═════════════════════════════════════════════════════════════════════════
+// ─── Stage 2: Synthesis ───────────────────────────────────────────────────
+// Takes Stage 1 output and distils the single strongest outreach narrative.
+
 export function buildStage2Prompt(stage1: any): string {
-  return `You are given structured research findings about a company. Your job is to identify the single strongest narrative thread about their customer support situation — the one story that would make a VP of CX feel understood, not targeted.
+  return `You are a senior AE at Vercel on the EMEA Startups team. You are reviewing research on a startup prospect.
 
-Research findings:
+Here is the research:
 ${JSON.stringify(stage1, null, 2)}
 
-TASK: Pick the one signal that is most acute, most recent, and most likely to resonate with a CX decision maker. Write it as a one-sentence narrative that frames the TENSION, not just the fact.
+Your job: identify the single sharpest outreach narrative for this prospect — the one tension or opportunity that makes Vercel obviously relevant right now.
 
-Bad (fact): "Acme has 47 negative Trustpilot reviews about response times."
-Good (narrative): "Acme's support reviews have shifted sharply on response times right as they're scaling into a new market."
+Vercel's core messages for startups:
+1. "You shouldn't need a DevOps hire at seed/Series A — Vercel eliminates that headcount."
+2. "Every engineer on your team should be able to ship to production without a deployment ticket."
+3. "You're expanding internationally — your current setup is adding 300ms+ of latency for every user outside your primary region."
+4. "You're on Netlify/Amplify/Railway — you've already outgrown it, you just haven't hit the wall yet."
+5. "Your deploy pipeline is a tax on your engineering velocity — preview environments change that."
 
-The narrative should imply a consequence without stating it. The reader should feel the problem, not be told it.
+Rules:
+- Pick the SINGLE strongest narrative. Don't hedge with multiple angles.
+- The narrative must be grounded in at least one specific signal from the research.
+- If confidence is LOW and no meaningful signals were found, set send_recommendation to SKIP.
+- Keep the narrative under 20 words — it is a hook, not an explanation.
+- The tension is the specific problem. Be brutal and specific.
 
-If confidence is LOW and no real signal was found, output exactly:
-{"narrative": null, "tension": null, "send_recommendation": "SKIP"}
+Return ONLY this JSON object — no markdown, no preamble:
 
-Otherwise output:
-{"narrative": "one sentence narrative as described above", "tension": "the implied consequence in 5-8 words", "send_recommendation": "SEND"}
-
-JSON only. No preamble. No markdown fences.`;
-}
-
-// ═════════════════════════════════════════════════════════════════════════
-// STAGE 3a: Email
-// Evidence base: Instantly 2026, Gong, 30MPC, Sendspark
-// 50-80 words, observation → bridge → value → one low-friction ask
-// ═════════════════════════════════════════════════════════════════════════
-export function buildEmailPrompt(c: ContactInput, stage2: any, stage1: any): string {
-  const signal = stage1?.signals?.[stage1?.strongest_signal] || {};
-  return `You are writing a cold email for a GetVocal SDR. GetVocal sells AI voice agents that handle customer support calls.
-
-CONTACT: ${c.first_name} ${c.last_name}, ${c.title} at ${c.company_name}
-NARRATIVE: ${stage2.narrative}
-TENSION: ${stage2.tension}
-SIGNAL DETAIL: ${JSON.stringify(signal)}
-
-Write a full cold email of 50-80 words total (including greeting and sign-off placeholder "[Rep Name]").
-
-Evidence-backed rules:
-- Under 80 words. 50-125 word emails get ~50% higher reply rates than longer ones (Instantly 2026 analysis of 100M+ emails).
-- Advanced personalisation drives 18% reply rate vs 9% for generic (Landbase/Infraforge).
-- Lead with an observation about THEM — not a statement about you.
-- Gong data: mentioning AI in subject/first line reduces open rates 17.9%. Don't.
-
-Structure (follow exactly):
-Line 1 — Opener: One specific, verifiable observation about their company's support situation. Factual. Cannot start with "I". Cannot be a compliment. Must create a question in the reader's mind.
-Line 2 — Bridge: Why that observation matters for someone in their role. Use priority language — what VPs of CX care about (deflection, CSAT, response time, support costs, agent headcount, ticket volume).
-Line 3 — Value: One sentence on what GetVocal does, tied directly to the observation. Reference the specific signal — not generic product pitch.
-Line 4 — Ask: One low-friction question. Examples: "worth a quick look?" / "is this on your radar or already solved?" / "open to swapping notes?" — NOT "can we book 15 minutes".
-
-Hard constraints:
-- Entire email 50-80 words including greeting and sign-off
-- One CTA only
-- Forbidden opening phrases: "I hope this finds you well", "I came across your profile", "I wanted to reach out", "My name is", "I'm reaching out"
-- Forbidden words anywhere: leverage, synergy, solution, revolutionary, game-changing, cutting-edge, seamless, best-in-class
-- Subject line: 3-7 words, lowercase, specific to them, no punctuation tricks, no salesy words, no AI mention
-
-Output ONLY this JSON (no preamble, no markdown fences):
 {
-  "subject_line": "3-7 word lowercase subject referencing something specific",
-  "body": "full email body 50-80 words including greeting and [Rep Name] sign-off",
-  "first_line": "the opening observation line pulled out as a standalone string for Lemlist custom variable use",
-  "word_count": number
+  "narrative": "under 20 words — the core hook, present tense, specific to this company",
+  "tension": "one sentence — the specific problem this company has that Vercel solves",
+  "primary_signal_used": "which signal from stage1 drove this narrative",
+  "send_recommendation": "SEND" | "SKIP",
+  "skip_reason": "if SKIP, one sentence on why — otherwise empty string"
 }`;
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// STAGE 3b: LinkedIn
-// Evidence base: Belkins 2025 (20M LinkedIn outreach attempts), Skylead
-// 300 chars max, observation + relevance bridge + soft close
-// ═════════════════════════════════════════════════════════════════════════
-export function buildLinkedInPrompt(c: ContactInput, stage2: any, stage1: any): string {
-  const signal = stage1?.signals?.[stage1?.strongest_signal] || {};
-  return `You are writing a LinkedIn connection request note for a GetVocal SDR. GetVocal sells AI voice agents that handle customer support calls.
+// ─── Stage 3a: Cold Email ─────────────────────────────────────────────────
+// 50-80 words. Subject line curiosity gap. One specific signal. One CTA.
+// Grounded in Instantly 2026 research: shorter = higher reply rate.
 
-CONTACT: ${c.first_name} ${c.last_name}, ${c.title} at ${c.company_name}
-NARRATIVE: ${stage2.narrative}
-TENSION: ${stage2.tension}
-SIGNAL DETAIL: ${JSON.stringify(signal)}
+export function buildEmailPrompt(input: ContactInput, stage2: any, stage1: any): string {
+  const { first_name, company_name, title } = input;
 
-Evidence-backed rules:
-- Personalised notes get 9.36% reply rate vs 5.44% without (Expandi, 20M request study).
-- AI-generated first LinkedIn messages outperform non-AI (4.19% vs 2.60%, Belkins 2025).
-- Winning pattern: specific observation or shared peer context → relevance bridge → soft close.
-- Must sound like one human noticed another human's work — not a sales message.
+  return `You are a senior AE at Vercel on the EMEA Startups team. Write a cold email to ${first_name}, ${title} at ${company_name}.
 
-Structure (follow exactly):
-Sentence 1: Specific observation about something they personally said/did/posted, OR a shared business context (peer companies you work with, shared challenge in their industry). Use the signal detail if it's about them personally.
-Sentence 2: One-line relevance bridge — why you're reaching out given that context.
-Sentence 3 (optional, only if char count allows): Soft close. "Would be good to connect" or "curious how you're thinking about this".
+Research narrative: ${stage2.narrative}
+Core tension: ${stage2.tension}
+Strongest signal: ${JSON.stringify(stage1.signals[stage1.strongest_signal])}
 
-Hard constraints:
-- 300 characters MAXIMUM including spaces (LinkedIn hard limit — verify count)
-- Forbidden phrases: "I'd love to connect", "touch base", "hop on a call", "synergies", "leverage", "quick chat"
-- Must reference something specific — the signal, a post, or peer-group context
-- No explicit meeting ask in the connection note itself
-- Must read like a human noticed another human's work
+Vercel's proof points for startups (use ONE, the most relevant):
+- Startups on Vercel ship 2x faster than on self-hosted infra — fewer deployment incidents, no DevOps bottleneck
+- Preview deployments: every PR gets a live URL — design, product, and eng review before it merges
+- Edge Network: 100+ regions, sub-50ms TTFB — critical for startups expanding to new markets
+- Zero-config Next.js: no webpack, no CI/CD plumbing — engineers ship, not configure
+- Vercel is trusted by Loom, HashiCorp, Robinhood, and 700,000+ startups globally
 
-Output ONLY this JSON (no preamble, no markdown fences):
+Email rules (from Instantly 2026 research — 100M+ emails analysed):
+- 50-80 words total in the body. No exceptions. Shorter = higher reply rate.
+- Subject line: 4-7 words. Curiosity gap or specific hook. No "quick question". No emoji.
+- First line: specific observation about ${company_name} — NOT a compliment, NOT "I came across your company"
+- One Vercel proof point maximum — the most relevant one
+- CTA: one soft question. Not "book a call". Something they can answer in one sentence.
+- No bullet points. Flowing prose only.
+- Tone: peer-to-peer. You are a fellow operator, not a vendor.
+- Never mention "AI" or "machine learning" — Vercel is infrastructure, not AI tooling.
+
+Return ONLY this JSON object — no markdown, no preamble:
+
 {
-  "connection_note": "the linkedin note text",
-  "character_count": exact character count of connection_note
+  "subject_line": "4-7 word subject",
+  "first_line": "opening sentence — specific observation, no compliment",
+  "body": "full email body including first line, 50-80 words, no subject line",
+  "word_count": number,
+  "cta": "the closing question extracted from the body"
 }`;
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// STAGE 3c: Cold call
-// Evidence base: Gong Labs analysis of 300M+ cold calls
-// "Heard the name tossed around" opener — 11.24% success rate (the winner)
-// ═════════════════════════════════════════════════════════════════════════
-export function buildColdCallPrompt(c: ContactInput, stage2: any, stage1: any): string {
-  const signal = stage1?.signals?.[stage1?.strongest_signal] || {};
-  return `You are writing a cold call opener for a GetVocal SDR. GetVocal sells AI voice agents that handle customer support calls.
+// ─── Stage 3b: LinkedIn Note ──────────────────────────────────────────────
+// 300 chars max. Warm, peer-to-peer. One hook. No pitch.
+// Grounded in Belkins 2025: notes under 300 chars get 3x higher acceptance.
 
-CONTACT: ${c.first_name} ${c.last_name}, ${c.title} at ${c.company_name}
-NARRATIVE: ${stage2.narrative}
-TENSION: ${stage2.tension}
-SIGNAL DETAIL: ${JSON.stringify(signal)}
+export function buildLinkedInPrompt(input: ContactInput, stage2: any, stage1: any): string {
+  const { first_name, company_name, title } = input;
 
-Evidence-backed rules (Gong Labs, 300M+ cold calls analyzed):
-- "Heard the name tossed around" opener wins at 11.24% success rate — highest of any opener tested.
-- Permission-based opener: 11.18% success rate.
-- "Did I catch you at a bad time?" is the WORST opener at 2.15% — NEVER use it.
-- Stating reason for calling: 2.1x success rate lift.
-- Using "we"/"our" instead of "I"/"my": 35-55% improvement in conversion.
-- Successful cold calls are ~6 minutes long vs ~3 for unsuccessful.
+  return `You are a senior AE at Vercel on the EMEA Startups team. Write a LinkedIn connection request note to ${first_name}, ${title} at ${company_name}.
 
-USE the "Heard The Name Tossed Around" structure. It wins on data AND it fits GetVocal's ICP perfectly (selling into CX leaders at growth-stage companies where peer name-drops work).
+Research narrative: ${stage2.narrative}
+Strongest signal: ${JSON.stringify(stage1.signals[stage1.strongest_signal])}
 
-STRUCTURE (follow exactly in this order):
+LinkedIn note rules (from Belkins 2025 — 20M LinkedIn outreach attempts):
+- HARD LIMIT: 300 characters including spaces. Count carefully.
+- No pitch. No "I'd love to connect". No "I came across your profile".
+- Reference one specific, real thing about ${company_name} or ${first_name} from the research.
+- End with one soft question or observation — not a CTA to book a call.
+- Tone: curious and warm. Like a smart operator reaching out to a peer.
+- Do NOT mention Vercel by name. The goal is connection acceptance, not a pitch.
 
-STEP 1 — Lead with peer context BEFORE introducing yourself:
-"Hey ${c.first_name} — we work with a few other [specific peer category] on the support side..."
+Return ONLY this JSON object — no markdown, no preamble:
 
-The peer category must be specific to feel like THEIR world. Examples:
-- "Series B fintechs with high inbound call volume"
-- "DTC brands scaling past 100k customers"
-- "insurance platforms dealing with claims call spikes"
-NOT "other SaaS companies" or "similar businesses" — those are dead on arrival.
-
-STEP 2 — Introduce yourself AFTER peer context:
-"...I'm [Rep Name] from GetVocal..."
-
-STEP 3 — The disarming question:
-"...have you heard our name tossed around?"
-
-STEP 4 — Bridge to the signal (for when they say no, which is likely):
-"Ha — well, the reason we're calling is [specific signal-based reason tied to the narrative]. Curious — [one qualifying question tied to their world]."
-
-Hard constraints:
-- Use "we"/"our" throughout — never "I"/"my"
-- Peer category must be specific (not "SaaS companies" / "similar businesses")
-- The reason for the call MUST reference the specific research signal
-- Steps 1-3 must be deliverable in under 15 seconds of spoken content
-- Do NOT ask "did I catch you at a bad time"
-- Do NOT ask "do you have 30 seconds"
-- End step 4 with one open-ended discovery question — never a yes/no question
-
-Output ONLY this JSON (no preamble, no markdown fences):
 {
-  "peer_category": "the specific peer group description used in step 1",
-  "full_script": "verbatim talk track covering all 4 steps as one continuous monologue",
-  "reason_for_call": "the signal-based reason from step 4 isolated for coaching reference"
+  "connection_note": "the full note — max 300 characters",
+  "character_count": number
+}`;
+}
+
+// ─── Stage 3c: Cold Call Opener ───────────────────────────────────────────
+// Gong-backed structure: permission-based opener + one specific reason + one question.
+// Grounded in Gong Labs (300M+ calls): calls that state a reason for calling
+// have 2.1x higher connect-to-meeting conversion.
+
+export function buildColdCallPrompt(input: ContactInput, stage2: any, stage1: any): string {
+  const { first_name, company_name, title } = input;
+
+  const peerCategories: Record<string, string> = {
+    tech_stack: "startups that recently migrated to Next.js",
+    deploy_hiring: "startups hiring their first DevOps or platform engineer",
+    funding_growth: "Series A/B startups scaling their engineering team",
+    founder_voice: "engineering leaders focused on developer velocity",
+    performance_pain: "startups expanding into new markets and hitting latency issues",
+  };
+
+  const peerCategory = peerCategories[stage1.strongest_signal] || "high-growth startups";
+
+  return `You are a senior AE at Vercel on the EMEA Startups team. Write a cold call opener for ${first_name}, ${title} at ${company_name}.
+
+Research narrative: ${stage2.narrative}
+Core tension: ${stage2.tension}
+Peer category for this call: ${peerCategory}
+Strongest signal: ${JSON.stringify(stage1.signals[stage1.strongest_signal])}
+
+Cold call structure (Gong Labs — 300M+ calls analysed):
+Use the "Heard the name tossed around" permission-based opener structure:
+1. Intro: name + company, immediate permission ask ("Did I catch you at a bad time?")
+2. Reason for call: ONE specific, concrete reason tied to the research signal
+3. Peer reference: briefly mention a similar startup category you work with (use: ${peerCategory})
+4. Single question: open-ended, focused on their current pain — designed to get them talking
+
+Rules:
+- Total script: 60-90 words when spoken aloud
+- No features list. No "we help companies like yours". No buzzwords.
+- The reason for call must reference something specific about ${company_name} — not a generic pitch.
+- End on a question, not a statement.
+- Write it as a natural spoken script — contractions, breathing room, human pacing.
+
+Return ONLY this JSON object — no markdown, no preamble:
+
+{
+  "peer_category": "${peerCategory}",
+  "reason_for_call": "one sentence — the specific reason tied to research",
+  "full_script": "the complete spoken script, 60-90 words",
+  "closing_question": "the final question extracted from the script"
 }`;
 }
